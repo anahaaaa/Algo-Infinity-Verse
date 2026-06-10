@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Feedback - Algo Infinity Verse</title>
+    <title>Interactive Sorting Algorithm Visualizer | Algo Infinity Verse</title>
+    <meta name="description" content="Visualize sorting algorithms like Bubble, Selection, and Insertion Sort step-by-step with adjustable array sizes and animation speeds." />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="feedback.css" />
+    <link rel="stylesheet" href="sorting-visualizer.css" />
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&amp;family=Poppins:wght@300;400;500;600;700&amp;family=Fira+Code:wght@400;500;600&amp;display=swap"
       rel="stylesheet"
@@ -28,8 +29,8 @@
     </div>
 
     <!-- Scroll to Top Button -->
-    <button id="scrollTopBtn" class="scroll-top-btn">
-      <i class="fas fa-circle-chevron-up"></i>
+    <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top">
+      <i class="fas fa-arrow-up"></i>
     </button>
 
     <!-- Navigation Bar -->
@@ -54,11 +55,8 @@
             <a href="index.html#roadmap" class="dropdown-item" role="menuitem">Learning Roadmap</a>
             <a href="python-learning.html" class="dropdown-item" role="menuitem">Learn Python</a>
             <a href="javascript-learning.html" class="dropdown-item" role="menuitem">Learn JavaScript</a>
-            <a href="java-learning.html" class="dropdown-item" role="menuitem">Learn Java</a>
-            <a href="cplusplus-learning.html" class="dropdown-item" role="menuitem">Learn C++</a>
-            <a href="c-learning.html" class="dropdown-item" role="menuitem">Learn C</a>
             <a href="powerbi-learning.html" class="dropdown-item" role="menuitem">Learn Power BI</a>
-            <a href="sorting-visualizer.html" class="dropdown-item" role="menuitem">Sorting Visualizer</a>
+            <a href="sorting-visualizer.html" class="dropdown-item active" role="menuitem">Sorting Visualizer</a>
           </div>
         </li>
         <li class="nav-item has-dropdown">
@@ -74,7 +72,7 @@
           </div>
         </li>
         <li class="nav-item has-dropdown">
-          <button class="nav-link dropdown-toggle active" aria-haspopup="true" aria-expanded="true">
+          <button class="nav-link dropdown-toggle" aria-haspopup="true" aria-expanded="false">
             <span>Community</span>
             <i class="fas fa-chevron-down dropdown-icon"></i>
           </button>
@@ -82,7 +80,7 @@
             <a href="community.html" class="dropdown-item" role="menuitem">Discussions</a>
             <a href="index.html#dashboard" class="dropdown-item" role="menuitem">Leaderboard</a>
             <a href="support-page/index.html" class="dropdown-item" role="menuitem">Support</a>
-            <a href="feedback.html" class="dropdown-item active" role="menuitem">Feedback</a>
+            <a href="feedback.html" class="dropdown-item" role="menuitem">Feedback</a>
           </div>
         </li>
         <li class="nav-item has-dropdown nav-profile-dropdown">
@@ -131,118 +129,124 @@
       </div>
     </nav>
 
-    <!-- Feedback Content Section -->
-    <section class="feedback-page">
-      <div class="feedback-hero-bg">
+    <!-- Hero Section -->
+    <section id="home" class="hero visualizer-hero">
+      <div class="hero-background">
         <div class="stars"></div>
         <div class="stars2"></div>
         <div class="stars3"></div>
       </div>
-      
-      <div class="feedback-container">
-        <div class="feedback-header">
-          <h1 class="gradient-text">Share Your Feedback</h1>
-          <p class="subtitle">Help us improve Algo Infinity Verse. Suggest features, report issues, or tell us what you love.</p>
-        </div>
-
-        <div class="feedback-card-wrapper glass-card">
-          <!-- Session notice widget -->
-          <div class="session-notice" id="sessionNotice">
-            <i class="fas fa-circle-notch fa-spin"></i> Checking authentication status...
-          </div>
-
-          <form id="feedbackForm" class="feedback-form" novalidate>
-            <!-- Feedback Type Cards Selector -->
-            <div class="form-group">
-              <label class="field-label">What kind of feedback do you have?</label>
-              <div class="feedback-type-selector" role="radiogroup" aria-label="Feedback Type Selector">
-                <div class="type-card" data-value="Suggestion" tabindex="0" role="radio" aria-checked="false">
-                  <div class="card-icon" style="--card-color: #fbbf24;"><i class="fas fa-lightbulb"></i></div>
-                  <span class="card-label">Suggestion</span>
-                </div>
-                <div class="type-card" data-value="Bug Report" tabindex="0" role="radio" aria-checked="false">
-                  <div class="card-icon" style="--card-color: #ef4444;"><i class="fas fa-bug"></i></div>
-                  <span class="card-label">Bug Report</span>
-                </div>
-                <div class="type-card" data-value="Feature Request" tabindex="0" role="radio" aria-checked="false">
-                  <div class="card-icon" style="--card-color: #06b6d4;"><i class="fas fa-rocket"></i></div>
-                  <span class="card-label">Feature Request</span>
-                </div>
-                <div class="type-card" data-value="General Feedback" tabindex="0" role="radio" aria-checked="false">
-                  <div class="card-icon" style="--card-color: #a78bfa;"><i class="fas fa-comments"></i></div>
-                  <span class="card-label">General Feedback</span>
-                </div>
-              </div>
-              <input type="hidden" name="feedbackType" id="selectedFeedbackType" required />
-              <div class="error-message" id="typeError" role="alert">Please select a feedback type.</div>
-            </div>
-
-            <!-- Subject Input -->
-            <div class="form-group">
-              <label for="subject" class="field-label">Subject</label>
-              <div class="input-wrapper">
-                <i class="fas fa-heading field-icon"></i>
-                <input 
-                  type="text" 
-                  id="subject" 
-                  name="subject" 
-                  placeholder="Summarize your feedback in a few words" 
-                  required 
-                  minlength="3" 
-                  maxlength="100"
-                />
-              </div>
-              <div class="error-message" id="subjectError" role="alert">Subject must be at least 3 characters.</div>
-            </div>
-
-            <!-- Message Textarea -->
-            <div class="form-group">
-              <div class="label-row">
-                <label for="message" class="field-label">Feedback Details</label>
-                <span class="char-counter" id="charCounter">0 / 1000 characters</span>
-              </div>
-              <div class="input-wrapper textarea-wrapper">
-                <i class="fas fa-pen-alt field-icon textarea-icon"></i>
-                <textarea 
-                  id="message" 
-                  name="message" 
-                  placeholder="Provide a detailed description of your suggestion, bug report, or feature request..." 
-                  required 
-                  minlength="10" 
-                  maxlength="1000"
-                ></textarea>
-              </div>
-              <div class="error-message" id="messageError" role="alert">Message must be at least 10 characters.</div>
-            </div>
-
-            <!-- Form Message Box (for submission failures) -->
-            <div class="form-submit-message hidden" id="formSubmitMessage" role="alert"></div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary submit-btn" id="submitBtn">
-              <span class="btn-text"><i class="fas fa-paper-plane"></i> Submit Feedback</span>
-              <span class="btn-loader hidden"><i class="fas fa-circle-notch fa-spin"></i> Submitting...</span>
-            </button>
-          </form>
+      <div class="hero-content">
+        <h1 class="hero-title">
+          <span class="title-line">Interactive</span>
+          <span class="main-title gradient-text">Sorting Visualizer</span>
+          <span class="subtitle">Animate and study sorting algorithms step-by-step</span>
+        </h1>
+        <div class="typing-container">
+          <span class="typing-text_visualizer" id="typingTextVisualizer"></span>
+          <span class="typing-cursor">|</span>
         </div>
       </div>
     </section>
 
-    <!-- Success Modal Overlay -->
-    <div class="modal-overlay hidden" id="successModalOverlay" role="dialog" aria-modal="true" aria-labelledby="successTitle">
-      <div class="success-modal glass-card">
-        <div class="success-icon-wrapper">
-          <div class="success-icon-circle">
-            <i class="fas fa-check"></i>
+    <!-- Main Visualizer Dashboard -->
+    <section class="section" id="visualizer-section">
+      <div class="container">
+        
+        <div class="visualizer-container">
+          
+          <!-- LEFT / MAIN CONTENT: Visualizer canvas -->
+          <div class="visualizer-main-panel">
+            
+            <!-- Visualizer Card (Bars chart) -->
+            <div class="visualizer-card" style="position: relative;">
+              <div class="canvas-wrapper" id="canvasWrapper">
+                <!-- Bars will be inserted dynamically by JS -->
+                <div class="canvas-placeholder-text" id="canvasPlaceholder">Initializing Sorter Canvas...</div>
+              </div>
+            </div>
+            
           </div>
-        </div>
-        <h2 id="successTitle">Thank You!</h2>
-        <p>Your feedback has been successfully submitted and stored. We appreciate you taking the time to help improve Algo Infinity Verse!</p>
-        <button class="btn btn-primary" id="successModalCloseBtn">Go back to Home</button>
-      </div>
-    </div>
 
-    <!-- Footer -->
+          <!-- RIGHT / SIDEBAR CONTENT: Controls, Complexity -->
+          <div class="visualizer-sidebar">
+            
+            <!-- Controls Card -->
+            <div class="visualizer-card" style="position: relative;">
+              <h3 style="margin-bottom: 1rem;"><i class="fas fa-sliders-h" style="color: var(--accent); margin-right: 0.5rem;"></i>Controls</h3>
+              
+              <!-- Algorithm Select -->
+              <div class="control-group">
+                <label for="algoSelect">Algorithm</label>
+                <select id="algoSelect" class="control-input">
+                  <option value="bubble">Bubble Sort</option>
+                  <option value="selection">Selection Sort</option>
+                  <option value="insertion">Insertion Sort</option>
+                </select>
+              </div>
+
+              <!-- Array Size -->
+              <div class="control-group">
+                <label for="arraySizeRange">Array Size <span class="val-display" id="sizeDisplay">30</span></label>
+                <input type="range" id="arraySizeRange" min="5" max="80" value="30" class="slider-custom">
+              </div>
+
+              <!-- Speed/Delay -->
+              <div class="control-group">
+                <label for="speedRange">Step Delay <span class="val-display" id="speedDisplay">50ms</span></label>
+                <input type="range" id="speedRange" min="5" max="1000" value="50" class="slider-custom">
+              </div>
+
+              <!-- Control Buttons -->
+              <button id="newArrayBtn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem; justify-content: center; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-sync-alt"></i> Generate New Array
+              </button>
+              
+              <div class="btn-control-row">
+                <button id="startBtn" class="btn btn-primary btn-control">
+                  <i class="fas fa-play"></i> Play
+                </button>
+                <button id="pauseBtn" class="btn btn-secondary btn-control" disabled>
+                  <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="resetBtn" class="btn btn-secondary btn-control">
+                  <i class="fas fa-undo"></i> Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Algorithm Complexity Panel -->
+            <div class="visualizer-card" style="position: relative;">
+              <h3 id="algoInfoTitle">Bubble Sort</h3>
+              
+              <div class="complexity-grid">
+                <div class="complexity-card-mini">
+                  <h5>Best Time</h5>
+                  <p id="bestTimeComplexity">O(n)</p>
+                </div>
+                <div class="complexity-card-mini">
+                  <h5>Average Time</h5>
+                  <p id="avgTimeComplexity">O(n²)</p>
+                </div>
+                <div class="complexity-card-mini">
+                  <h5>Worst Time</h5>
+                  <p id="worstTimeComplexity">O(n²)</p>
+                </div>
+                <div class="complexity-card-mini">
+                  <h5>Space Complexity</h5>
+                  <p id="spaceComplexity">O(1)</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- FOOTER -->
     <footer class="footer">
       <div class="container">
         <div class="footer-content">
@@ -277,64 +281,76 @@
               <li><a href="cheat-sheets.html">DSA Cheat Sheets</a></li>
               <li><a href="python-learning.html">Learn Python</a></li>
               <li><a href="javascript-learning.html">Learn JavaScript</a></li>
-              <li><a href="java-learning.html">Learn Java</a></li>
-              <li><a href="cplusplus-learning.html">Learn C++</a></li>
-              <li><a href="c-learning.html">Learn C</a></li>
               <li><a href="powerbi-learning.html">Learn Power BI</a></li>
+              <li><a href="sorting-visualizer.html">Sorting Visualizer</a></li>
               <li><a href="resume.html">Coding Resume</a></li>
               <li><a href="support-page/index.html">Support</a></li>
-              <li><a href="feedback.html" class="active">Feedback</a></li>
+              <li><a href="feedback.html">Feedback</a></li>
             </ul>
           </div>
           <div class="footer-section">
             <h4>Quick Questions</h4>
             <div class="footer-questions">
-              <button
-                class="footer-question"
-                data-question="What is the time complexity of this problem?"
-              >
-                Time Complexity
-              </button>
-              <button
-                class="footer-question"
-                data-question="Can you give me a hint for this problem?"
-              >
-                Hint
-              </button>
-              <button
-                class="footer-question"
-                data-question="What approach should I use?"
-              >
-                Approach
-              </button>
-              <button
-                class="footer-question"
-                data-question="Are there any edge cases I should consider?"
-              >
-                Edge Cases
-              </button>
+              <button class="footer-question" data-question="What is the time complexity of this problem?">Time Complexity</button>
+              <button class="footer-question" data-question="Can you give me a hint for this problem?">Hint</button>
+              <button class="footer-question" data-question="What approach should I use?">Approach</button>
+              <button class="footer-question" data-question="Are there any edge cases I should consider?">Edge Cases</button>
             </div>
           </div>
           <div class="footer-section">
             <h4>Newsletter</h4>
             <p>Subscribe to get weekly problem sets and tips</p>
             <form class="newsletter-form">
-              <input type="email" placeholder="Your email" aria-label="Newsletter email input" />
-              <button type="submit" aria-label="Subscribe"><i class="fas fa-paper-plane"></i></button>
+              <input type="email" placeholder="Your email" aria-label="Email address" />
+              <button type="submit" aria-label="Submit subscription"><i class="fas fa-paper-plane"></i></button>
             </form>
           </div>
         </div>
         <div class="footer-bottom">
-          <p>
-            &copy; 2024 Algo Infinity Verse. Crafted with 💜 for learners
-            worldwide.
-          </p>
+          <p>&copy; 2024 Algo Infinity Verse. Crafted with 💜 for learners worldwide.</p>
         </div>
       </div>
     </footer>
 
+    <!-- Chatbot Widget -->
+    <div class="chatbot-widget">
+      <button class="chatbot-toggle" id="chatbotToggle" aria-label="Toggle chat">
+        <i class="fas fa-comments"></i>
+        <span class="chatbot-badge">3</span>
+      </button>
+      <div class="chatbot-window hidden" id="chatbotWindow">
+        <div class="chatbot-header">
+          <h4>Algo Assistant</h4>
+          <button class="chatbot-close" id="chatbotClose" aria-label="Close chat">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="chatbot-messages" id="chatbotMessages">
+          <div class="message bot">
+            <p>Hi! I'm your DSA assistant. How can I help you today?</p>
+          </div>
+        </div>
+        <div class="chatbot-input">
+          <input
+            type="text"
+            id="chatbotInput"
+            placeholder="Type your question..."
+          />
+          <button id="chatbotSend" aria-label="Send message">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+        <div class="quick-questions">
+          <button class="quick-q" data-question="What is the time complexity of this problem?">Time Complexity</button>
+          <button class="quick-q" data-question="Can you give me a hint for this problem?">Hint</button>
+          <button class="quick-q" data-question="What approach should I use?">Approach</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
     <script src="auth.js"></script>
     <script src="script.js"></script>
-    <script src="feedback.js"></script>
+    <script src="sorting-visualizer.js"></script>
   </body>
 </html>
