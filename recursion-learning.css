@@ -273,7 +273,7 @@
 }
 
 .recursion-code-lang {
-    font-family: Fira Code, monospace;
+    font-family: "Fira Code", monospace;
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--recursion-secondary);
@@ -311,7 +311,7 @@
 }
 
 .recursion-code-block code {
-    font-family: Fira Code, Consolas, Monaco, monospace;
+    font-family: "Fira Code", Consolas, Monaco, monospace;
     font-size: 0.85rem;
     line-height: 1.7;
     color: #e6edf3;
@@ -404,7 +404,7 @@
 
 .recursion-output pre {
     margin: 0;
-    font-family: Fira Code, monospace;
+    font-family: "Fira Code", monospace;
     font-size: 0.82rem;
     line-height: 1.6;
     color: var(--text-secondary);

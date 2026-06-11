@@ -153,13 +153,17 @@ function initCopyButtons() {
                 textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none";
                 document.body.appendChild(textarea);
                 textarea.select();
-                try {
-                    document.execCommand("copy");
-                } catch (e) {
-                    console.warn("Copy failed", e);
+             try {
+                const copied = document.execCommand("copy");
+                if (copied) {
+                    markCopied();
+                } else {
+                    console.warn("Copy failed");
                 }
-                document.body.removeChild(textarea);
-                markCopied();
+             } catch (e) {
+                 console.warn("Copy failed", e);
+             }
+             document.body.removeChild(textarea);
             }
         });
     });
