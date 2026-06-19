@@ -1,227 +1,270 @@
 import vm from "vm";
 
-function safeStringify(value) {
-  try {
-    if (value === undefined) return "undefined";
-    return JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
-  } catch {
-    try {
-      return String(value);
-    } catch {
-      return "[Unserializable]";
-    }
+function truncate(str, max) {
+  const s = String(str ?? "");
+  if (!Number.isFinite(max) || max <= 0) return "";
+  return s.length > max ? s.slice(0, max) + "\n[truncated]" : s;
+}
+
+function normalizeTestCase(t) {
+  // Support a couple shapes for flexibility.
+  // Preferred: { input: any, expectedOutput: string|any }
+  // Also accept: { stdin: string, expected: string }
+  if (t == null || typeof t !== "object") {
+    return {
+      input: "",
+      expectedOutput: "",
+      name: undefined,
+      show: true,
+    };
   }
-}
 
-function deepEqualMvp(a, b) {
-  // MVP strategy:
-  // 1) Try JSON deep comparison
-  // 2) Fall back to strict equality
-  const sa = safeStringify(a);
-  const sb = safeStringify(b);
-  if (sa === sb) return true;
-  return Object.is(a, b);
-}
+  if ("input" in t) {
+    return {
+      name: t.name ?? undefined,
+      input: t.input,
+      expectedOutput: t.expectedOutput ?? t.expected ?? "",
+      isHidden: Boolean(t.isHidden),
+    };
+  }
 
-function normalizeError(err) {
-  if (!err) return { message: "Unknown error", stack: null, name: null, lineNumber: null };
+  if ("stdin" in t) {
+    return {
+      name: t.name ?? undefined,
+      input: t.stdin,
+      expectedOutput: t.expected ?? "",
+      isHidden: Boolean(t.isHidden),
+    };
+  }
+
   return {
-    name: err.name || null,
-    message: err.message || String(err),
-    stack: err.stack || null,
-    lineNumber: err.lineNumber ?? null,
+    name: t.name ?? undefined,
+    input: t.value ?? "",
+    expectedOutput: t.expectedOutput ?? t.expected ?? "",
+    isHidden: Boolean(t.isHidden),
   };
 }
 
-function wrapForTimeout(fn, timeoutMs) {
-  // Returns a function that resolves/rejects with a timeout.
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => {
-      reject(Object.assign(new Error(`Time limit exceeded (${timeoutMs}ms)`), { code: "ETIMEOUT" }));
-    }, timeoutMs);
+function buildHarness({ sourceCode, showMySteps }) {
+  // The harness exposes a deterministic way to run tests.
+  // - If the user exports a function called `solve`, we call it.
+  // - Otherwise we fall back to evaluating the code and calling global `solve`.
+  // - For tests, we pass either `input` as-is, or if it's a string and solve expects stdin-like, user can parse.
+  //
+  // We also capture console output.
 
-    Promise.resolve()
-      .then(() => fn())
-      .then((v) => {
-        clearTimeout(t);
-        resolve(v);
-      })
-      .catch((e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-  });
+  const harness = `
+'use strict';
+
+const __captured = { logs: [], errors: [] };
+
+const consoleProxy = {
+  log: (...args) => { __captured.logs.push(args.map(String).join(' ')); },
+  error: (...args) => { __captured.errors.push(args.map(String).join(' ')); },
+  warn: (...args) => { __captured.logs.push(args.map(String).join(' ')); },
+};
+
+// Provide a minimal console and a few safe globals.
+const sandboxGlobal = {
+  console: consoleProxy,
+  setTimeout,
+  setInterval,
+  clearTimeout,
+  clearInterval,
+};
+
+// Evaluate user code in the VM.
+${sourceCode}
+
+// Resolve solve function.
+let __solve = null;
+if (typeof solve === 'function') __solve = solve;
+else if (typeof globalThis !== 'undefined' && typeof globalThis.solve === 'function') __solve = globalThis.solve;
+else if (typeof module !== 'undefined' && module && typeof module.exports === 'object' && typeof module.exports.solve === 'function') {
+  __solve = module.exports.solve;
 }
 
-export async function executeJavaScriptSandbox({
-  userCode,
-  exportName,
+function runOne(input) {
+  if (!__solve) {
+    throw new Error('No solve function found. Expected a function named solve(input).');
+  }
+  return __solve(input);
+}
+
+module.exports = { runOne, __captured };
+
+//# sourceURL=user_code.js
+`;
+
+  // Note: vm context will provide module.exports.
+  return harness;
+}
+
+export async function runUserCode({
+  language,
+  sourceCode,
   tests,
-  debug = false,
-  timeLimitMsPerTest = 750,
-  maxOutputBytes = 20000,
+  timeoutMs = 1000,
+  maxOutputChars = 20000,
+  showMySteps = false,
 }) {
-  if (typeof userCode !== "string" || !userCode.trim()) {
-    throw new Error("userCode must be a non-empty string");
-  }
-  if (typeof exportName !== "string" || !exportName.trim()) {
-    throw new Error("exportName must be a non-empty string");
-  }
-  if (!Array.isArray(tests)) {
-    throw new Error("tests must be an array");
-  }
-
-  const logs = [];
-  const stdout = {
-    write: (chunk) => {
-      if (chunk === undefined) return;
-      logs.push(String(chunk));
-    },
-  };
-
-  const context = {
-    console: {
-      log: (...args) => {
-        const line = args
-          .map((a) => {
-            if (typeof a === "bigint") return a.toString();
-            if (typeof a === "string") return a;
-            return safeStringify(a);
-          })
-          .join(" ");
-        logs.push(line);
-      },
-      error: (...args) => {
-        const line = args
-          .map((a) => {
-            if (typeof a === "bigint") return a.toString();
-            if (typeof a === "string") return a;
-            return safeStringify(a);
-          })
-          .join(" ");
-        logs.push(line);
-      },
-    },
-    // Prevent access to obvious host APIs
-    setTimeout: undefined,
-    setInterval: undefined,
-    clearTimeout: undefined,
-    clearInterval: undefined,
-    // Allow basic JS globals (vm provides intrinsics)
-    Math,
-    Date,
-    Number,
-    String,
-    Boolean,
-    Array,
-    Object,
-    JSON,
-    RegExp,
-    Promise,
-  };
-
-  const sandbox = vm.createContext(context, {
-    name: "aiv-js-sandbox",
-  });
-
-  // Compile user code once
-  const wrappedCode = `"use strict";\n${userCode}\n`;
-
-  // Basic output limit for logs
-  function truncateLogsIfNeeded() {
-    if (logs.length === 0) return;
-    let bytes = 0;
-    const kept = [];
-    for (const line of logs) {
-      bytes += Buffer.byteLength(line, "utf8");
-      if (bytes > maxOutputBytes) break;
-      kept.push(line);
-    }
-    logs.length = 0;
-    logs.push(...kept);
-  }
-
-  let solveFn;
-  try {
-    const script = new vm.Script(wrappedCode, {
-      filename: "user-code.js",
-      displayErrors: true,
-    });
-    script.runInContext(sandbox, { timeout: timeLimitMsPerTest });
-
-    // export resolution (MVP)
-    // Supported options:
-    // - function declared globally with name == exportName
-    // - const/let function assigned to exportName
-    // - module.exports assignment is NOT supported in this MVP
-    solveFn = sandbox[exportName];
-  } catch (err) {
-    throw {
-      type: "RuntimeError",
-      error: normalizeError(err),
-      stdout: debug ? logs.join("\n") : undefined,
+  if (language && language !== "javascript") {
+    return {
+      ok: false,
+      error: `Unsupported language for MVP sandbox: ${language}`,
     };
   }
 
-  if (typeof solveFn !== "function") {
-    throw {
-      type: "BadExport",
-      error: {
-        message: `Export '${exportName}' not found or is not a function.`,
-        lineNumber: null,
-      },
-      stdout: debug ? logs.join("\n") : undefined,
-    };
-  }
+  const normalizedTests = Array.isArray(tests) ? tests.map(normalizeTestCase) : [];
+
+  const stdoutAll = [];
+  const stderrAll = [];
 
   const results = [];
 
-  for (const test of tests) {
-    const name = test?.name || "sample";
-    const input = test?.input;
-    const expected = test?.expected;
+  // Create a single VM instance per run.
+  // Use a fresh context so each run is isolated.
+  const outputBuffer = { logs: [], errors: [] };
 
+  // module shim for harness.
+  const module = { exports: {} };
+
+  const context = vm.createContext({
+    console: {
+      log: (...args) => {
+        outputBuffer.logs.push(args.map(String).join(" "));
+      },
+      error: (...args) => {
+        outputBuffer.errors.push(args.map(String).join(" "));
+      },
+      warn: (...args) => {
+        outputBuffer.logs.push(args.map(String).join(" "));
+      },
+    },
+    setTimeout,
+    setInterval,
+    clearTimeout,
+    clearInterval,
+    module,
+    globalThis: {},
+  });
+
+  const harness = buildHarness({ sourceCode, showMySteps });
+
+  let compiled;
+  try {
+    compiled = new vm.Script(harness, { filename: "user_harness.js" });
+  } catch (e) {
+    return {
+      ok: false,
+      error: "Failed to compile user code",
+      runtimeError: {
+        message: e?.message || String(e),
+        stack: e?.stack || null,
+      },
+    };
+  }
+
+  // Execute user code once to define solve/runOne.
+  try {
+    compiled.runInContext(context, { timeout: timeoutMs });
+  } catch (e) {
+    return {
+      ok: false,
+      error: "Runtime error while loading user code",
+      runtimeError: {
+        message: e?.message || String(e),
+        stack: e?.stack || null,
+      },
+      transcript: {
+        stdout: truncate(outputBuffer.logs.join("\n"), maxOutputChars),
+        stderr: truncate(outputBuffer.errors.join("\n"), maxOutputChars),
+        showMySteps,
+      },
+    };
+  }
+
+  const exported = module.exports || {};
+  const runOne = exported.runOne;
+
+  // Execute each test.
+  for (let i = 0; i < normalizedTests.length; i++) {
+    const t = normalizedTests[i];
+
+    const start = Date.now();
+
+    let actual;
+    let runtimeError = null;
+    let timedOut = false;
+
+    // Run each test with timeout.
     try {
-      truncateLogsIfNeeded();
-
-      const actual = await wrapForTimeout(() => {
-        // Call convention:
-        // - if input is an array: solveFn(...input)
-        // - else: solveFn(input)
-        if (Array.isArray(input)) return solveFn(...input);
-        return solveFn(input);
-      }, timeLimitMsPerTest);
-
-      const pass = deepEqualMvp(actual, expected);
-
-      results.push({
-        name,
-        pass,
-        expected,
-        actual,
-        error: null,
-        stdout: debug ? logs.join("\n") : undefined,
-      });
-    } catch (err) {
-      const normalized = normalizeError(err);
-      results.push({
-        name,
-        pass: false,
-        expected,
-        actual: null,
-        error: normalized,
-        stdout: debug ? logs.join("\n") : undefined,
-      });
+      actual = vm.runInContext(
+        `runOne(${JSON.stringify(t.input)})`,
+        context,
+        { timeout: timeoutMs },
+      );
+    } catch (e) {
+      // vm timeout has a generic error message; best-effort detect.
+      const msg = e?.message || String(e);
+      if (/Script execution timed out|timed out/i.test(msg)) {
+        timedOut = true;
+      }
+      runtimeError = {
+        message: msg,
+        stack: e?.stack || null,
+      };
     }
 
-    // Reset logs between tests so “which test failed” is clearer
-    logs.length = 0;
+    const stdout = truncate(outputBuffer.logs.join("\n"), maxOutputChars);
+    const stderr = truncate(outputBuffer.errors.join("\n"), maxOutputChars);
+
+    // Only keep per-test delta-ish output in MVP: for now, same captured stream.
+    stdoutAll.push(stdout);
+    stderrAll.push(stderr);
+
+    const expected = t.expectedOutput;
+
+    // Compare as strings if expected is a string; otherwise strict equality.
+    let passed = false;
+    if (timedOut || runtimeError) {
+      passed = false;
+    } else {
+      if (typeof expected === "string") {
+        passed = String(actual) === String(expected);
+      } else {
+        passed = actual === expected;
+      }
+    }
+
+    const durationMs = Date.now() - start;
+
+    results.push({
+      testName: t.name ?? `test_${i + 1}`,
+      input: t.input,
+      expectedOutput: expected,
+      actualOutput: timedOut ? null : actual,
+      passed,
+      durationMs,
+      timedOut,
+      runtimeError,
+      transcript: showMySteps
+        ? {
+            stdout,
+            stderr,
+          }
+        : undefined,
+    });
   }
 
   return {
-    exportName,
-    timeLimitMsPerTest,
-    tests: results,
+    ok: true,
+    results,
+    runtimeMeta: {
+      timeoutMs,
+      maxOutputChars,
+      showMySteps,
+    },
   };
 }
 
