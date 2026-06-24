@@ -411,10 +411,14 @@ function initCssEditor() {
 
   /* Save */
   saveBtn.addEventListener("click", () => {
-    localStorage.setItem(SAVE_KEY, editor.getValue());
-    saveBtn.innerHTML = '<i class="fas fa-check"></i>';
-    setTimeout(() => { saveBtn.innerHTML = '<i class="fas fa-save"></i>'; }, 2000);
-    logInfo("CSS saved to browser storage.");
+    try {
+      localStorage.setItem(SAVE_KEY, editor.getValue());
+      saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(() => { saveBtn.innerHTML = '<i class="fas fa-save"></i>'; }, 2000);
+      logInfo("CSS saved to browser storage.");
+    } catch {
+      logMsg("Could not save to browser storage.", "warn");
+    }
   });
 
   /* Editor events — only re-render automatically when live preview is on */
