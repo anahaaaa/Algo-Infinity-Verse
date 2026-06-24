@@ -43,20 +43,46 @@ function sessionCookie(token) {
 }
 
 async function verifyGoogleIdToken(idToken) {
+  const apiKey = process.env.FIREBASE_API_KEY;
+  if (!apiKey) {
+    console.error("[google-auth] FIREBASE_API_KEY not configured");
+    return null;
+  }
+
   try {
-    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
-    if (!response.ok) return null;
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[google-auth] lookup HTTP error:", response.status, text);
+      return null;
+    }
+
     const data = await response.json();
-    if (data.aud !== process.env.FIREBASE_PROJECT_ID) return null;
-    if (data.iss !== `https://securetoken.google.com/${process.env.FIREBASE_PROJECT_ID}`) return null;
+
+    if (!data.users || data.users.length === 0) {
+      console.error("[google-auth] no users in lookup response");
+      return null;
+    }
+
+    const user = data.users[0];
+    console.log("[google-auth] lookup success for:", user.email);
     return {
-      uid: data.sub,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-      emailVerified: data.email_verified === "true",
+      uid: user.localId,
+      email: user.email,
+      name: user.displayName || user.email,
+      picture: user.photoUrl || null,
+      emailVerified: user.emailVerified === true,
     };
-  } catch {
+  } catch (err) {
+    console.error("[google-auth] lookup exception:", err);
     return null;
   }
 }

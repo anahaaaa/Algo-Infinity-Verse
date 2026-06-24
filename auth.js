@@ -509,24 +509,35 @@
         let redirectResult = await window.__firebaseClient.getRedirectUser();
         let idToken = redirectResult?.idToken;
 
+        console.log("[google-auth] redirectResult:", !!redirectResult, "idToken present:", !!idToken);
+
         if (!idToken) {
           const currentUser = window.__firebaseClient.getCurrentUser();
           if (currentUser) {
+            console.log("[google-auth] currentUser found:", currentUser.email, "uid:", currentUser.uid);
             try {
               idToken = await currentUser.getIdToken(true);
+              console.log("[google-auth] getIdToken(true) result:", !!idToken);
             } catch (tokenError) {
-              console.warn("Force refresh ID token failed:", tokenError);
+              console.warn("[google-auth] Force refresh ID token failed:", tokenError);
             }
+          } else {
+            console.warn("[google-auth] No currentUser available after redirect");
           }
         }
 
+        console.log("[google-auth] sending to /api/auth/google, has idToken:", !!idToken);
+
         if (idToken) {
+          const requestBody = JSON.stringify({ idToken });
+          console.log("[google-auth] POST /api/auth/google, token prefix:", idToken?.substring(0, 20) + "...", "length:", idToken?.length);
           const response = await fetch("/api/auth/google", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken }),
+            body: requestBody,
           });
+          console.log("[google-auth] /api/auth/google response status:", response.status);
           if (response.ok) {
             const payload = await response.json();
             currentSession = { authenticated: true, user: payload.user };

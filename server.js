@@ -623,17 +623,33 @@ async function handleApi(req, res, pathname) {
 
       let decoded;
       try {
-        const tokenResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
-        if (!tokenResponse.ok) throw new Error("Token verification failed");
+        const apiKey = process.env.FIREBASE_API_KEY;
+        if (!apiKey) throw new Error("FIREBASE_API_KEY not configured");
+
+        const tokenResponse = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken }),
+          }
+        );
+
+        if (!tokenResponse.ok) {
+          const errText = await tokenResponse.text();
+          throw new Error(`Lookup failed: ${tokenResponse.status} ${errText}`);
+        }
+
         const tokenData = await tokenResponse.json();
-        if (tokenData.aud !== process.env.FIREBASE_PROJECT_ID) throw new Error("Invalid audience");
-        if (tokenData.iss !== `https://securetoken.google.com/${process.env.FIREBASE_PROJECT_ID}`) throw new Error("Invalid issuer");
+        if (!tokenData.users || tokenData.users.length === 0) throw new Error("No user found for token");
+
+        const u = tokenData.users[0];
         decoded = {
-          uid: tokenData.sub,
-          email: tokenData.email,
-          name: tokenData.name,
-          picture: tokenData.picture,
-          emailVerified: tokenData.email_verified === "true",
+          uid: u.localId,
+          email: u.email,
+          name: u.displayName || u.email,
+          picture: u.photoUrl || null,
+          emailVerified: u.emailVerified === true,
         };
       } catch (verifyError) {
         console.error("Token verification failed:", verifyError.message);

@@ -47,48 +47,30 @@ async function ensureAuth() {
 export async function getRedirectUser() {
   const authInstance = await ensureAuth();
 
-  const result = await getRedirectResult(authInstance);
-  if (result?.user) {
-    try {
-      const idToken = await result.user.getIdToken();
-      return { idToken, user: result.user };
-    } catch (e) {
-      console.warn("getIdToken from redirect result failed, trying force refresh:", e);
-      try {
-        const idToken = await result.user.getIdToken(true);
-        return { idToken, user: result.user };
-      } catch (e2) {
-        console.warn("Force refresh ID token also failed:", e2);
-      }
-    }
-  }
-
-  return new Promise((resolve) => {
-    let resolved = false;
-
+  await new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
-      if (resolved) return;
       if (user) {
-        resolved = true;
         unsubscribe();
-        try {
-          const idToken = await user.getIdToken(true);
-          resolve({ idToken, user });
-        } catch (tokenError) {
-          console.warn("Force refresh ID token from onAuthStateChanged failed:", tokenError);
-          resolve(null);
-        }
+        resolve(user);
       }
     });
 
     setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        unsubscribe();
-        resolve(null);
-      }
-    }, 3000);
+      unsubscribe();
+      resolve(null);
+    }, 5000);
   });
+
+  const user = authInstance.currentUser;
+  if (!user) return null;
+
+  try {
+    const idToken = await user.getIdToken(true);
+    return { idToken, user };
+  } catch (tokenError) {
+    console.warn("getIdToken after redirect failed:", tokenError);
+    return null;
+  }
 }
 
 export async function signInWithGoogle() {
